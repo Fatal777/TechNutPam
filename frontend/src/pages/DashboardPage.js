@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check, AlertTriangle, AlertCircle, Info, Shield, Package, ChevronRight } from 'lucide-react';
-import { scanResults, dependencyResults } from '../data/mockData';
+import { X, Check, AlertTriangle, AlertCircle, Info, Shield, Package, ChevronRight, Newspaper, Globe, ExternalLink } from 'lucide-react';
+import { scanResults, dependencyResults, complianceNews, flaggedWebsites } from '../data/mockData';
 
 const severityConfig = {
   Critical: { color: 'bg-red-500', text: 'text-red-500', badge: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800', icon: AlertCircle },
@@ -146,6 +146,20 @@ function DetailPanel({ scan, onClose }) {
   );
 }
 
+const newsSeverityStyle = {
+  critical: 'bg-red-500/20 text-red-400 border-red-500/30',
+  high: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+  medium: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+  low: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+};
+
+const newsJurisdictionStyle = {
+  GDPR: 'bg-purple-500/20 text-purple-400',
+  DPDP: 'bg-teal-500/20 text-teal-400',
+  HIPAA: 'bg-rose-500/20 text-rose-400',
+  SOC2: 'bg-sky-500/20 text-sky-400',
+};
+
 export default function DashboardPage() {
   const [jurisdictions, setJurisdictions] = useState({
     GDPR: true,
@@ -154,6 +168,7 @@ export default function DashboardPage() {
     SOC2: true,
   });
   const [selectedScan, setSelectedScan] = useState(null);
+  const [activeTab, setActiveTab] = useState('scans');
 
   const toggleJurisdiction = (key) => {
     setJurisdictions(prev => ({ ...prev, [key]: !prev[key] }));
@@ -162,6 +177,16 @@ export default function DashboardPage() {
   const activeJurisdictions = Object.entries(jurisdictions).filter(([, v]) => v).map(([k]) => k);
   const filteredScans = scanResults.filter(s =>
     s.jurisdictions.some(j => activeJurisdictions.includes(j))
+  );
+
+  const jurisdictionMap = { 'DPDP India': 'DPDP' };
+  const normalizedActive = activeJurisdictions.map(j => jurisdictionMap[j] || j);
+
+  const filteredNews = complianceNews.filter(n =>
+    normalizedActive.includes(n.jurisdiction)
+  );
+  const filteredFlagged = flaggedWebsites.filter(w =>
+    w.jurisdictions.some(j => normalizedActive.includes(j))
   );
 
   return (
@@ -189,82 +214,254 @@ export default function DashboardPage() {
             </div>
           ))}
         </div>
+
+        {/* CrustData powered badge */}
+        <div className="mt-8 pt-5 border-t border-slate-800">
+          <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider mb-3">Intelligence</p>
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span>CrustData Live Feed</span>
+          </div>
+          <p className="text-[10px] text-slate-600 mt-1 pl-3.5">Updated 2 min ago</p>
+        </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex overflow-hidden">
-        {/* Scan Results Table */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <h2 className="font-heading text-xl font-bold mb-5" data-testid="scan-results-title">Recent Scan Results</h2>
-          <div className="rounded-xl border border-slate-800 overflow-hidden">
-            <table className="w-full" data-testid="scan-results-table">
-              <thead>
-                <tr className="bg-slate-800/50 text-left">
-                  <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Timestamp</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">File</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider text-center">Findings</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Severity</th>
-                  <th className="px-4 py-3"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/50">
-                {filteredScans.map(scan => (
-                  <tr
-                    key={scan.id}
-                    data-testid={`scan-row-${scan.id}`}
-                    onClick={() => setSelectedScan(scan)}
-                    className={`cursor-pointer transition-colors hover:bg-slate-800/40 ${
-                      selectedScan?.id === scan.id ? 'bg-slate-800/60' : ''
-                    }`}
-                  >
-                    <td className="px-4 py-3.5 text-sm text-slate-400 font-code">{scan.timestamp}</td>
-                    <td className="px-4 py-3.5 text-sm text-slate-200 font-medium">{scan.file}</td>
-                    <td className="px-4 py-3.5 text-sm text-center text-slate-200 font-semibold">{scan.findings}</td>
-                    <td className="px-4 py-3.5"><SeverityBars severity={scan.severity} /></td>
-                    <td className="px-4 py-3.5">
-                      <ChevronRight size={16} className="text-slate-600" />
-                    </td>
-                  </tr>
-                ))}
-                {filteredScans.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-12 text-center text-slate-500">
-                      No scan results for selected jurisdictions
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+      <main className="flex-1 flex flex-col overflow-hidden">
+        {/* Tab Bar */}
+        <div className="flex items-center gap-1 px-6 pt-5 pb-0">
+          {[
+            { key: 'scans', label: 'Scan Results', icon: Shield },
+            { key: 'news', label: 'Compliance News', icon: Newspaper },
+            { key: 'flagged', label: 'Flagged Websites', icon: Globe },
+          ].map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-t-lg text-sm font-semibold transition-colors ${
+                activeTab === tab.key
+                  ? 'bg-slate-800/80 text-white border border-slate-700 border-b-slate-800/80'
+                  : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'
+              }`}
+            >
+              <tab.icon size={14} />
+              {tab.label}
+              {tab.key === 'news' && filteredNews.length > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-amber-500/20 text-amber-400">
+                  {filteredNews.length}
+                </span>
+              )}
+              {tab.key === 'flagged' && filteredFlagged.length > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-red-500/20 text-red-400">
+                  {filteredFlagged.length}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
 
-        {/* Dependency Scan Panel */}
-        <aside className="w-64 flex-shrink-0 border-l border-slate-800 bg-slate-900/50 p-5 overflow-y-auto" data-testid="dependency-panel">
-          <div className="flex items-center gap-2 mb-5">
-            <Package size={16} className="text-slate-400" />
-            <h3 className="font-heading text-sm font-bold text-slate-300">Dependency Scan</h3>
-          </div>
-          <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-3">SafeDep Results</p>
-          <div className="space-y-3">
-            {dependencyResults.map((dep, i) => (
-              <div key={i} data-testid={`dep-item-${dep.name}`} className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`px-2 py-0.5 text-[10px] font-bold rounded ${
-                      dep.status === 'Safe'
-                        ? 'bg-emerald-500/20 text-emerald-400'
-                        : 'bg-red-500/20 text-red-400'
-                    }`}
-                  >
-                    {dep.status}
-                  </span>
-                  <span className="text-sm text-slate-300 font-medium truncate">{dep.name}</span>
+        <div className="flex-1 flex overflow-hidden">
+          {/* Tab Content */}
+          <div className="flex-1 overflow-y-auto p-6 pt-4">
+            {/* Scan Results Tab */}
+            {activeTab === 'scans' && (
+              <>
+                <h2 className="font-heading text-xl font-bold mb-5" data-testid="scan-results-title">Recent Scan Results</h2>
+                <div className="rounded-xl border border-slate-800 overflow-hidden">
+                  <table className="w-full" data-testid="scan-results-table">
+                    <thead>
+                      <tr className="bg-slate-800/50 text-left">
+                        <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Timestamp</th>
+                        <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">File</th>
+                        <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider text-center">Findings</th>
+                        <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Severity</th>
+                        <th className="px-4 py-3"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/50">
+                      {filteredScans.map(scan => (
+                        <tr
+                          key={scan.id}
+                          data-testid={`scan-row-${scan.id}`}
+                          onClick={() => setSelectedScan(scan)}
+                          className={`cursor-pointer transition-colors hover:bg-slate-800/40 ${
+                            selectedScan?.id === scan.id ? 'bg-slate-800/60' : ''
+                          }`}
+                        >
+                          <td className="px-4 py-3.5 text-sm text-slate-400 font-code">{scan.timestamp}</td>
+                          <td className="px-4 py-3.5 text-sm text-slate-200 font-medium">{scan.file}</td>
+                          <td className="px-4 py-3.5 text-sm text-center text-slate-200 font-semibold">{scan.findings}</td>
+                          <td className="px-4 py-3.5"><SeverityBars severity={scan.severity} /></td>
+                          <td className="px-4 py-3.5">
+                            <ChevronRight size={16} className="text-slate-600" />
+                          </td>
+                        </tr>
+                      ))}
+                      {filteredScans.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="px-4 py-12 text-center text-slate-500">
+                            No scan results for selected jurisdictions
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
-                <p className="text-[10px] text-slate-600 pl-1">{dep.lastChecked}</p>
-              </div>
-            ))}
+              </>
+            )}
+
+            {/* Compliance News Tab */}
+            {activeTab === 'news' && (
+              <>
+                <div className="flex items-center justify-between mb-5">
+                  <h2 className="font-heading text-xl font-bold">Live Compliance News</h2>
+                  <span className="flex items-center gap-1.5 text-xs text-emerald-400">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Powered by CrustData
+                  </span>
+                </div>
+                <div className="space-y-3">
+                  {filteredNews.map(item => (
+                    <motion.div
+                      key={item.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="rounded-xl border border-slate-800 bg-slate-900/50 p-5 hover:border-slate-700 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className={`px-2 py-0.5 text-[10px] font-bold rounded border ${newsSeverityStyle[item.severity]}`}>
+                              {item.severity.toUpperCase()}
+                            </span>
+                            <span className={`px-2 py-0.5 text-[10px] font-bold rounded ${newsJurisdictionStyle[item.jurisdiction]}`}>
+                              {item.jurisdiction}
+                            </span>
+                            <span className="text-[10px] text-slate-600">{item.date}</span>
+                          </div>
+                          <h3 className="font-heading font-semibold text-sm text-slate-200 mb-1.5">{item.title}</h3>
+                          <p className="text-xs text-slate-400 leading-relaxed">{item.snippet}</p>
+                          <p className="text-[10px] text-slate-600 mt-2">Source: {item.source}</p>
+                        </div>
+                        <a
+                          href={item.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center hover:bg-slate-800 transition-colors"
+                        >
+                          <ExternalLink size={14} className="text-slate-500" />
+                        </a>
+                      </div>
+                    </motion.div>
+                  ))}
+                  {filteredNews.length === 0 && (
+                    <div className="py-12 text-center text-slate-500">
+                      No compliance news for selected jurisdictions
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* Flagged Websites Tab */}
+            {activeTab === 'flagged' && (
+              <>
+                <div className="flex items-center justify-between mb-5">
+                  <h2 className="font-heading text-xl font-bold">Flagged Websites</h2>
+                  <span className="flex items-center gap-1.5 text-xs text-emerald-400">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    CrustData Web Search
+                  </span>
+                </div>
+                <div className="rounded-xl border border-slate-800 overflow-hidden">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-slate-800/50 text-left">
+                        <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Website</th>
+                        <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Compliance Issues</th>
+                        <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Frameworks</th>
+                        <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Severity</th>
+                        <th className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Scanned</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/50">
+                      {filteredFlagged.map(site => (
+                        <tr key={site.id} className="hover:bg-slate-800/30 transition-colors">
+                          <td className="px-4 py-3.5">
+                            <div className="flex items-center gap-2">
+                              <Globe size={14} className="text-slate-500 flex-shrink-0" />
+                              <span className="text-sm text-slate-200 font-medium font-code">{site.url}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <div className="space-y-1">
+                              {site.issues.map((issue, i) => (
+                                <div key={i} className="flex items-center gap-1.5 text-xs text-slate-400">
+                                  <AlertCircle size={10} className="text-red-400 flex-shrink-0" />
+                                  {issue}
+                                </div>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <div className="flex flex-wrap gap-1">
+                              {site.jurisdictions.map(j => (
+                                <span key={j} className={`px-2 py-0.5 text-[10px] font-bold rounded ${newsJurisdictionStyle[j]}`}>
+                                  {j}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <span className={`px-2 py-0.5 text-[10px] font-bold rounded border ${newsSeverityStyle[site.severity]}`}>
+                              {site.severity.toUpperCase()}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3.5 text-xs text-slate-500">{site.scanDate}</td>
+                        </tr>
+                      ))}
+                      {filteredFlagged.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="px-4 py-12 text-center text-slate-500">
+                            No flagged websites for selected jurisdictions
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </div>
-        </aside>
+
+          {/* Dependency Scan Panel */}
+          <aside className="w-64 flex-shrink-0 border-l border-slate-800 bg-slate-900/50 p-5 overflow-y-auto" data-testid="dependency-panel">
+            <div className="flex items-center gap-2 mb-5">
+              <Package size={16} className="text-slate-400" />
+              <h3 className="font-heading text-sm font-bold text-slate-300">Dependency Scan</h3>
+            </div>
+            <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-3">SafeDep Results</p>
+            <div className="space-y-3">
+              {dependencyResults.map((dep, i) => (
+                <div key={i} data-testid={`dep-item-${dep.name}`} className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`px-2 py-0.5 text-[10px] font-bold rounded ${
+                        dep.status === 'Safe'
+                          ? 'bg-emerald-500/20 text-emerald-400'
+                          : 'bg-red-500/20 text-red-400'
+                      }`}
+                    >
+                      {dep.status}
+                    </span>
+                    <span className="text-sm text-slate-300 font-medium truncate">{dep.name}</span>
+                  </div>
+                  <p className="text-[10px] text-slate-600 pl-1">{dep.lastChecked}</p>
+                </div>
+              ))}
+            </div>
+          </aside>
+        </div>
       </main>
 
       {/* Detail Panel Overlay */}

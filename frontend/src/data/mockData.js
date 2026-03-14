@@ -443,6 +443,112 @@ export const reportsData = [
   },
 ];
 
+export const complianceNews = [
+  {
+    id: 1,
+    title: "EU Fines Meta €1.2B for GDPR Transfer Violations",
+    snippet: "The European Data Protection Board imposed a record fine on Meta for transferring EU user data to US servers without adequate safeguards under Article 46.",
+    jurisdiction: "GDPR",
+    source: "edpb.europa.eu",
+    date: "Mar 12, 2026",
+    severity: "critical",
+    url: "https://edpb.europa.eu/news/2026/meta-fine",
+  },
+  {
+    id: 2,
+    title: "India's DPDP Rules Mandate Consent Managers by Q3 2026",
+    snippet: "MeitY published final rules requiring all data fiduciaries to integrate certified Consent Managers for processing Indian citizens' personal data by September 2026.",
+    jurisdiction: "DPDP",
+    source: "meity.gov.in",
+    date: "Mar 10, 2026",
+    severity: "high",
+    url: "https://meity.gov.in/dpdp-rules-2026",
+  },
+  {
+    id: 3,
+    title: "HIPAA Breach Notification Window Reduced to 30 Days",
+    snippet: "HHS finalized amendments to the HIPAA Breach Notification Rule, shortening the reporting window from 60 to 30 days for breaches affecting 500+ individuals.",
+    jurisdiction: "HIPAA",
+    source: "hhs.gov",
+    date: "Mar 8, 2026",
+    severity: "high",
+    url: "https://hhs.gov/hipaa/2026-breach-rule",
+  },
+  {
+    id: 4,
+    title: "AICPA Updates SOC 2 Criteria for AI-Generated Code",
+    snippet: "New trust services criteria require organizations to document AI code generation tools in scope and demonstrate controls over AI-assisted development workflows.",
+    jurisdiction: "SOC2",
+    source: "aicpa.org",
+    date: "Mar 5, 2026",
+    severity: "medium",
+    url: "https://aicpa.org/soc2-ai-criteria",
+  },
+  {
+    id: 5,
+    title: "GDPR: ICO Issues Guidance on Cookie Consent Dark Patterns",
+    snippet: "The UK ICO published enforcement guidance clarifying that pre-ticked checkboxes and confusing reject flows constitute invalid consent under GDPR Article 7.",
+    jurisdiction: "GDPR",
+    source: "ico.org.uk",
+    date: "Mar 3, 2026",
+    severity: "medium",
+    url: "https://ico.org.uk/cookie-guidance-2026",
+  },
+  {
+    id: 6,
+    title: "India Data Protection Board Registers First Complaints",
+    snippet: "The newly operational Data Protection Board of India has begun accepting breach complaints from data principals, with 340+ cases filed in the first month.",
+    jurisdiction: "DPDP",
+    source: "meity.gov.in",
+    date: "Feb 28, 2026",
+    severity: "medium",
+    url: "https://meity.gov.in/dpb-operations",
+  },
+];
+
+export const flaggedWebsites = [
+  {
+    id: 1,
+    url: "checkout.store-demo.com",
+    issues: ["No cookie consent banner", "PII logged in analytics", "HTTP-only endpoints"],
+    jurisdictions: ["GDPR", "SOC2"],
+    severity: "critical",
+    scanDate: "Mar 13, 2026",
+  },
+  {
+    id: 2,
+    url: "health-portal-sample.in",
+    issues: ["Patient data stored outside India", "No encryption at rest", "Missing BAA with cloud provider"],
+    jurisdictions: ["DPDP", "HIPAA"],
+    severity: "critical",
+    scanDate: "Mar 12, 2026",
+  },
+  {
+    id: 3,
+    url: "signup-flow.example.io",
+    issues: ["Pre-ticked marketing consent", "No data deletion mechanism", "SSN collected unnecessarily"],
+    jurisdictions: ["GDPR"],
+    severity: "high",
+    scanDate: "Mar 11, 2026",
+  },
+  {
+    id: 4,
+    url: "api-dashboard.sample.dev",
+    issues: ["API keys in client-side code", "No rate limiting", "Stack traces exposed in errors"],
+    jurisdictions: ["SOC2"],
+    severity: "high",
+    scanDate: "Mar 10, 2026",
+  },
+  {
+    id: 5,
+    url: "kids-edu-app.example.in",
+    issues: ["No age verification", "Behavioral tracking on minors", "Data sent to US servers"],
+    jurisdictions: ["DPDP"],
+    severity: "critical",
+    scanDate: "Mar 9, 2026",
+  },
+];
+
 export const pricingPlans = [
   {
     name: "Free",

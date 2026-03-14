@@ -4,9 +4,9 @@ ComplianceShield MCP Server
 A Concierge-wrapped MCP server that enforces compliance at the protocol level.
 
 Architecture (from master plan):
-  Stage 1: configure   → set_jurisdictions
-  Stage 2: wrap_prompt → compliance_wrap          (BEFORE code gen)
-  Stage 3: scan        → scan_code, scan_dependencies  (AFTER code exists)
+  Stage 1: configure   → set_jurisdictions, get_regulatory_updates, search_compliance_news
+  Stage 2: wrap_prompt → compliance_wrap, search_compliance_web, ask_compliance_question
+  Stage 3: scan        → scan_code, scan_dependencies
   Stage 4: remediate   → get_fixes, apply_fix
   Stage 5: report      → generate_report
 
@@ -14,6 +14,7 @@ Sponsor integrations:
   - Concierge   : workflow stage enforcement (this file)
   - SafeDep     : dependency malware scanning (scan_dependencies)
   - Gemini API  : code analysis + remediation (scan_code, get_fixes, generate_report)
+  - CrustData   : real-time compliance intelligence (news, web search, regulatory Q&A)
   - Emergent.sh : web dashboard (separate — see Person C)
 
 Usage:
@@ -36,12 +37,20 @@ SAFEDEP_API_KEY     = "sfd_sTm9Ij-e-BHd_9WE_wiwkqr7PN6ijxt_K0NrVjskMBeOCRJgdxRBh
 SAFEDEP_TENANT_ID   = "default-team.technutapm.safedep.io"
 CRUSTDATA_API_TOKEN = "340b6f6b71f89771df811206e81be5788e173e74"
 
+# Expose keys as env vars so integration modules can read them via os.getenv()
+os.environ.setdefault("GEMINI_API_KEY", GEMINI_API_KEY)
+os.environ.setdefault("CRUSTDATA_API_TOKEN", CRUSTDATA_API_TOKEN)
+
 # ── Gemini setup ──────────────────────────────────────────────────────────────
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel("gemini-2.0-flash")
 
 # ── FastMCP instance (tools registered here, Concierge wraps below) ───────────
 mcp = FastMCP("compliance-shield")
+
+# ── CrustData integration — registers 5 compliance intelligence tools ─────────
+from integrations import register_crustdata_tools
+register_crustdata_tools(mcp)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -541,9 +550,12 @@ try:
     app = Concierge(mcp)
 
     # 5-stage workflow — mirrors the master plan architecture
+    # CrustData tools are placed in stages matching their purpose:
+    #   configure  → regulatory updates & news (understand current landscape)
+    #   wrap_prompt → web search & Q&A (research before generating code)
     app.stages = {
-        "configure":    ["set_jurisdictions"],
-        "wrap_prompt":  ["compliance_wrap"],
+        "configure":    ["set_jurisdictions", "get_regulatory_updates", "search_compliance_news", "fetch_regulation_content"],
+        "wrap_prompt":  ["compliance_wrap", "search_compliance_web", "ask_compliance_question"],
         "scan":         ["scan_code", "scan_dependencies"],
         "remediate":    ["get_fixes", "apply_fix"],
         "report":       ["generate_report"],

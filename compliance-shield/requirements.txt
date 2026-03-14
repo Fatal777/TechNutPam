@@ -1,0 +1,25 @@
+# ComplianceShield — Python dependencies
+# Install with: pip install -r requirements.txt
+
+# MCP framework
+mcp[cli]>=1.0.0
+
+# Concierge workflow enforcement wrapper
+# NOTE: Package name on PyPI is 'concierge' (not 'concierge-sdk')
+# Verify before hackathon: pip install concierge
+concierge
+
+# Google Gemini API (code analysis, remediation, report generation)
+google-generativeai>=0.8.0
+
+# HTTP client for SafeDep and Unsiloed AI calls
+httpx>=0.27.0
+
+# Environment variable loading
+python-dotenv>=1.0.0
+
+# HTTP server for --http mode (Lovable / remote clients)
+uvicorn>=0.30.0
+
+# Type annotations (Python 3.9 compatibility)
+typing-extensions>=4.0.0

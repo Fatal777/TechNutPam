@@ -1,21 +1,130 @@
-Context
-Problem: Developers vibe-coding with Lovable, Claude Code, Cursor, and Emergent.sh ship fast but with zero compliance awareness. Their AI-generated code violates GDPR, DPDP (India), HIPAA, SOC2 - and they don't discover it until an enterprise security review kills the deal.
-Our Approach: NOT a post-code scanner. A LIVE compliance layer that sits inside the developer's coding environment.
-We build a Concierge-wrapped MCP server that integrates directly into Claude Code, Cursor, VSCode, and Lovable. While the developer is coding, our MCP server:
+# ComplianceShield 🛡️
 
-Wraps their prompts with jurisdiction-specific compliance constraints (code is born compliant)
-Scans every dependency in real-time via SafeDep before installation
-Analyzes generated code against toggled compliance frameworks
-Auto-generates remediation diffs the developer can accept with one click
-Generates exportable compliance reports
+> **Your AI can code. Now it can also lawyer.**
 
-Why MCP + Concierge is the right architecture:
+A live compliance layer that lives inside your IDE. ComplianceShield wraps your
+AI coding prompts with jurisdiction-specific rules, scans generated code for
+violations, audits dependencies for malware, and produces audit-ready reports —
+all without leaving Claude Code, Cursor, or Lovable.
 
-MCP is the universal protocol supported by Claude Code, Cursor, Cline, Lovable, Windsurf
-Concierge enforces compliance workflow steps at the protocol level (can't skip scans)
-SafeDep already HAS an MCP server we can chain
-Developer never leaves their IDE - compliance happens inline
-One-line setup: claude mcp add compliance-shield --transport http https://our-server.com/mcp
+**Supported regulations:** GDPR (EU) · DPDP (India) · HIPAA (US) · SOC2
+
+---
+
+## The Problem
+
+Developers vibe-coding with Lovable, Claude Code, Cursor, and Emergent.sh ship fast but with zero compliance awareness. Their AI-generated code violates GDPR, DPDP (India), HIPAA, SOC2 - and they don't discover it until an enterprise security review kills the deal.
+**Our approach:** NOT a post-code scanner. A LIVE compliance layer that sits inside the developer's coding environment — code is born compliant, violations are caught inline, fixes are one click, reports are export-ready.
+
+---
+
+## Quick Start
+
+### 1. Install
+
+```bash
+git clone https://github.com/your-org/compliance-shield
+cd compliance-shield
+python -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 2. Configure API keys
+
+```bash
+cp .env.example .env
+# Fill in: GEMINI_API_KEY, SAFEDEP_API_KEY, SAFEDEP_TENANT_ID, UNSILOED_API_KEY
+```
+
+| Key | Where to get it |
+|-----|----------------|
+| `GEMINI_API_KEY` | [ai.google.dev](https://ai.google.dev) |
+| `SAFEDEP_API_KEY` | [app.safedep.io](https://app.safedep.io) → Settings → API Keys |
+| `SAFEDEP_TENANT_ID` | Same page as above |
+| `UNSILOED_API_KEY` | [docs.unsiloed.ai](https://docs.unsiloed.ai) |
+
+### 3. Add to Claude Code (one line)
+
+```bash
+claude mcp add compliance-shield --transport stdio -- python /path/to/server.py
+```
+
+Or drop `.mcp.json` into your project root — Claude Code auto-detects it.
+
+### 4. Verify
+
+In Claude Code, type `/mcp`. You should see `compliance-shield` listed as connected.
+
+---
+
+## The 5-Stage Workflow
+
+ComplianceShield enforces a strict workflow via Concierge. You cannot skip stages — this is protocol-level enforcement, not a suggestion.
+
+```
+Stage 1: configure    → set which regulations apply to your project
+Stage 2: wrap_prompt  → inject compliance rules BEFORE generating code
+Stage 3: scan         → audit code + dependencies AFTER generation
+Stage 4: remediate    → generate and apply one-click fixes
+Stage 5: report       → export audit-ready report for enterprise reviews
+```
+
+### Stage 1 — Configure
+```
+set_jurisdictions(["gdpr", "dpdp"])
+```
+Optionally parse a custom policy PDF:
+```
+upload_policy("/path/to/your-gdpr-policy.pdf")
+```
+
+### Stage 2 — Wrap your prompt (before generating code)
+```
+compliance_wrap("build a user registration API with email and phone")
+```
+Paste the output as your next Claude prompt. Code generated from a wrapped prompt is born compliant.
+
+### Stage 3 — Scan existing code
+```
+scan_code(code="<paste your code>", filename="routes/register.js")
+scan_dependencies(package_json="<paste package.json>")
+```
+
+### Stage 4 — Fix violations
+```
+get_fixes()                                          # uses cached scan results
+apply_fix(file_path="register.js", fixed_code="...")  # writes fix, backs up original
+```
+
+### Stage 5 — Generate compliance report
+```
+generate_report()
+```
+Returns a professional Markdown report ready for enterprise security reviewers.
+
+---
+
+## Running Tests
+
+```bash
+python test_server.py smoke    # no API keys needed, < 5 seconds
+python test_server.py          # full suite (requires API keys)
+```
+
+---
+
+## HTTP Mode (for Lovable / remote clients)
+
+```bash
+python server.py --http
+# Then in Lovable: Settings → Connectors → New MCP Server → http://localhost:8080
+```
+
+---
+
+## Why MCP + Concierge is the right architecture
+
+MCP is the universal protocol supported by Claude Code, Cursor, Cline, Lovable, and Windsurf. Concierge enforces compliance workflow steps at the protocol level — you can't skip scans. SafeDep already has an MCP server we can chain. The developer never leaves their IDE.
 
 
 YC RFS Categories (Fall 2025 + Spring 2026)

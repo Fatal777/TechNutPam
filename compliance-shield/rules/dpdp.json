@@ -1,0 +1,70 @@
+{
+  "jurisdiction": "DPDP (India)",
+  "short_code": "dpdp",
+  "full_name": "Digital Personal Data Protection Act, 2023",
+  "rules": [
+    {
+      "id": "DPDP-1",
+      "rule": "Data localization",
+      "description": "Critical personal data of Indian citizens must be stored and processed within the territory of India. Data transfers to non-notified countries are restricted.",
+      "section": "Sec. 16 - Transfer of Personal Data Outside India",
+      "severity": "critical",
+      "patterns": ["us-east", "us-west", "eu-west", "eu-central", "ap-southeast", "amazonaws.com"],
+      "fix_guidance": "Use ap-south-1 (Mumbai) for AWS. Use Central India region for Azure. Implement data residency controls for Indian user data."
+    },
+    {
+      "id": "DPDP-2",
+      "rule": "Purpose limitation",
+      "description": "Personal data must only be processed for the specific, lawful purpose for which consent was obtained. No secondary use without fresh consent.",
+      "section": "Sec. 5 - Obligations of Data Fiduciary",
+      "severity": "high",
+      "patterns": ["analytics", "tracking", "marketing", "thirdParty", "share_data"],
+      "fix_guidance": "Document the purpose for each data processing activity. Do not reuse personal data for analytics, marketing, or third-party sharing without separate explicit consent."
+    },
+    {
+      "id": "DPDP-3",
+      "rule": "Consent manager integration",
+      "description": "Must provide a mechanism (Consent Manager) for data principals to give, manage, review, and withdraw consent. Consent must be free, specific, informed, and unambiguous.",
+      "section": "Sec. 6 - Consent of Data Principal",
+      "severity": "high",
+      "patterns": ["req.body", "POST /register", "POST /signup", "form_data", "user_input"],
+      "fix_guidance": "Implement a consent management UI. Record consent with timestamp, purpose, and scope. Provide one-click consent withdrawal."
+    },
+    {
+      "id": "DPDP-4",
+      "rule": "Data breach notification",
+      "description": "Must notify the Data Protection Board of India and affected data principals of any personal data breach without delay.",
+      "section": "Sec. 8 - Data Breach Notification",
+      "severity": "high",
+      "patterns": [],
+      "fix_guidance": "Implement breach detection logging. Set up automated notification system. Create incident response procedures."
+    },
+    {
+      "id": "DPDP-5",
+      "rule": "Right to correction and erasure",
+      "description": "Data principals have the right to correct inaccurate data and request erasure of personal data that is no longer necessary.",
+      "section": "Sec. 12 - Rights of Data Principal",
+      "severity": "medium",
+      "patterns": [],
+      "fix_guidance": "Implement PUT /user/:id for corrections and DELETE /user/:id for erasure. Add data retention policies with automatic purging."
+    },
+    {
+      "id": "DPDP-6",
+      "rule": "No PII in logs or monitoring",
+      "description": "Personal data must not be logged, printed, or exposed in monitoring dashboards, error messages, or debug output.",
+      "section": "Sec. 8(5) - Reasonable Security Safeguards",
+      "severity": "critical",
+      "patterns": ["console.log", "print(", "logger.", "console.error", "debug("],
+      "fix_guidance": "Sanitize all log outputs. Use structured logging with PII redaction. Never log Aadhaar numbers, PAN numbers, or phone numbers."
+    },
+    {
+      "id": "DPDP-7",
+      "rule": "Children's data protection",
+      "description": "Processing personal data of children (under 18) requires verifiable parental consent. No behavioral tracking or targeted advertising for children.",
+      "section": "Sec. 9 - Processing of Children's Data",
+      "severity": "high",
+      "patterns": ["age", "dob", "date_of_birth", "minor", "child"],
+      "fix_guidance": "Implement age verification. Obtain verifiable parental consent for minors. Disable tracking/advertising for users under 18."
+    }
+  ]
+}

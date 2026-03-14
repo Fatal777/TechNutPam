@@ -1,0 +1,61 @@
+{
+  "jurisdiction": "HIPAA (US Healthcare)",
+  "short_code": "hipaa",
+  "full_name": "Health Insurance Portability and Accountability Act",
+  "rules": [
+    {
+      "id": "HIPAA-1",
+      "rule": "PHI must be encrypted",
+      "description": "All Protected Health Information (PHI) must be encrypted both at rest and in transit using AES-256 or equivalent.",
+      "section": "45 CFR 164.312(a)(2)(iv) - Encryption and Decryption",
+      "severity": "critical",
+      "patterns": ["patient", "diagnosis", "medical", "health", "prescription", "treatment", "INSERT INTO"],
+      "fix_guidance": "Encrypt all PHI fields using AES-256. Use TLS 1.2+ for data in transit. Implement field-level encryption for sensitive columns."
+    },
+    {
+      "id": "HIPAA-2",
+      "rule": "Access controls required",
+      "description": "Implement role-based access controls (RBAC) to limit PHI access to authorized personnel only.",
+      "section": "45 CFR 164.312(a)(1) - Access Control",
+      "severity": "critical",
+      "patterns": ["app.get", "app.post", "router.", "endpoint", "api/"],
+      "fix_guidance": "Implement RBAC middleware. Require authentication for all PHI endpoints. Use least-privilege access principle."
+    },
+    {
+      "id": "HIPAA-3",
+      "rule": "Audit logging for PHI access",
+      "description": "All access to PHI must be logged with who accessed what, when, and from where. Logs must be retained for 6 years.",
+      "section": "45 CFR 164.312(b) - Audit Controls",
+      "severity": "high",
+      "patterns": ["patient", "medical_record", "health_data", "SELECT.*FROM.*patient"],
+      "fix_guidance": "Implement audit logging middleware that records: user ID, timestamp, action, resource accessed, IP address. Use append-only log storage."
+    },
+    {
+      "id": "HIPAA-4",
+      "rule": "No PHI in logs or error messages",
+      "description": "Protected Health Information must never appear in application logs, error messages, console output, or monitoring dashboards.",
+      "section": "45 CFR 164.502(a) - Minimum Necessary",
+      "severity": "critical",
+      "patterns": ["console.log", "print(", "logger.", "error(", "debug("],
+      "fix_guidance": "Sanitize all log outputs to remove PHI. Use structured logging with PHI field redaction. Log only de-identified data."
+    },
+    {
+      "id": "HIPAA-5",
+      "rule": "Business Associate Agreement required",
+      "description": "Any third-party service handling PHI must have a signed Business Associate Agreement (BAA).",
+      "section": "45 CFR 164.502(e) - Business Associates",
+      "severity": "high",
+      "patterns": ["aws", "azure", "gcp", "stripe", "twilio", "sendgrid", "third_party"],
+      "fix_guidance": "Ensure BAAs are signed with all cloud providers and third-party services that process PHI. Use HIPAA-eligible service tiers."
+    },
+    {
+      "id": "HIPAA-6",
+      "rule": "Minimum necessary standard",
+      "description": "Only the minimum amount of PHI necessary for the intended purpose should be collected, used, or disclosed.",
+      "section": "45 CFR 164.502(b) - Minimum Necessary",
+      "severity": "medium",
+      "patterns": ["SELECT *", "req.body", "formData"],
+      "fix_guidance": "Select only required columns instead of SELECT *. Validate that only necessary PHI fields are collected in forms."
+    }
+  ]
+}

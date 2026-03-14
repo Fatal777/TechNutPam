@@ -45,13 +45,13 @@ Developer's IDE (Claude Code / Cursor / Lovable / VSCode)
 +--[Concierge Wrapper]-- Enforces compliance workflow stages
 |       |
 |       |  Stage 1: "configure"
-|       |    Tools: set_jurisdictions, upload_policy_doc
+|       |    Tools: set_jurisdictions, upload_policy_doc, get_regulatory_updates
 |       |
 |       |  Stage 2: "wrap_prompt"
-|       |    Tools: compliance_wrap (injects rules into dev's prompt BEFORE code gen)
+|       |    Tools: compliance_wrap, search_compliance_web, ask_compliance_question
 |       |
 |       |  Stage 3: "scan"
-|       |    Tools: scan_code, scan_dependencies (chains to SafeDep MCP)
+|       |    Tools: scan_code, scan_dependencies, search_compliance_news
 |       |
 |       |  Stage 4: "remediate"
 |       |    Tools: get_fixes, apply_fix
@@ -60,19 +60,21 @@ Developer's IDE (Claude Code / Cursor / Lovable / VSCode)
 |       |    Tools: generate_report, export_pdf
 |       |
 |       v
-|   [Gemini API] -- Code analysis + auto-remediation
-|   [SafeDep]    -- Dependency malware/vulnerability scanning
-|   [Unsiloed AI]-- Parse compliance PDFs into structured rules
+|   [Gemini API]  -- Code analysis + auto-remediation
+|   [SafeDep]     -- Dependency malware/vulnerability scanning
+|   [Unsiloed AI] -- Parse compliance PDFs into structured rules
+|   [CrustData]   -- Real-time compliance intelligence (web search + news search)
 |
 +--[Emergent.sh Dashboard]-- Web UI for reports, jurisdiction config, billing
        |
        v
   [Razorpay] -- Billing for SaaS plans
-Sponsor tools: 5 meaningfully integrated
+Sponsor tools: 6 meaningfully integrated
 
 Concierge - Wraps our MCP server, enforces workflow stages
 SafeDep - Chained MCP for dependency security scanning
 Unsiloed AI - Parses compliance PDFs into machine-readable rules
+CrustData - Real-time compliance intelligence via Web Search + News Search APIs
 Emergent.sh - Dashboard UI for web-based config/reports/billing
 Razorpay - Payment integration for subscription plans
 
@@ -82,12 +84,155 @@ Core AI: Gemini API (code analysis, compliance checking, auto-remediation)
 Tech Stack
 MCP Server: Python with FastMCP + concierge-sdk
 AI Engine: Google Gemini API (google-generativeai Python SDK)
+Compliance Intelligence: CrustData Web Search + News Search API (real-time regulatory updates, enforcement news, AI-powered compliance Q&A)
 Dependency Scanning: SafeDep REST API / MCP chaining
 Document Parsing: Unsiloed AI REST API
 Dashboard/Web UI: Emergent.sh (vibe-coded)
 Payments: Razorpay Checkout (test mode)
 Deployment: MCP server runs locally via stdio OR hosted via HTTP
 
+
+---
+
+## CrustData Compliance Intelligence Integration
+
+CrustData provides the **real-time compliance intelligence layer** for ComplianceShield. While the static rule files (`rules/*.json`) define what the compliance rules ARE, CrustData tells us what's **happening right now** — enforcement actions, regulatory updates, new guidance, and AI-powered answers to compliance questions.
+
+### API Endpoints Used
+
+| Endpoint | Method | Purpose | Cost |
+|----------|--------|---------|------|
+| `/screener/web-search` | POST | Search web, news, AI, scholar sources | 1 credit/query |
+| `/screener/web-fetch` | POST | Fetch full HTML from up to 10 URLs | 1 credit/URL |
+
+**Auth:** `Authorization: Token <CRUSTDATA_API_TOKEN>` header
+**Rate Limit:** 10 requests/minute
+**Base URL:** `https://api.crustdata.com`
+
+### Source Types
+
+The web-search endpoint supports multiple source types via the `sources` parameter:
+
+- `"web"` — General web results (compliance guidance, regulatory body websites)
+- `"news"` — News articles (enforcement actions, regulatory updates, breach reports)
+- `"ai"` — Google AI Mode (synthesized answers to compliance questions)
+- `"scholar-articles"` — Academic/legal papers on compliance topics
+- `"social"` — Social media discussions about regulatory changes
+
+### 5 MCP Tools
+
+These are registered via `register_crustdata_tools(mcp)` from `integrations/crustdata_tools.py`:
+
+#### 1. `search_compliance_news(jurisdictions, topic?)`
+Search for latest regulatory news, enforcement actions, and fines.
+
+```
+# Example: Latest GDPR enforcement news
+search_compliance_news(["gdpr"])
+
+# Example: HIPAA breach notifications
+search_compliance_news(["hipaa"], topic="data breach")
+
+# Example: All jurisdictions, encryption-related news
+search_compliance_news(["gdpr", "dpdp", "hipaa", "soc2"], topic="encryption")
+```
+
+**How it works:** Builds queries like `"GDPR enforcement OR update OR regulation"`, searches CrustData news sources with geo-targeting (GDPR→GB, DPDP→IN, HIPAA→US), returns results with jurisdiction tags.
+
+#### 2. `search_compliance_web(query, jurisdictions?)`
+Free-form web search scoped to compliance topics.
+
+```
+# Example: Research cookie consent implementation
+search_compliance_web("cookie consent implementation requirements", ["gdpr"])
+
+# Example: Data encryption standards
+search_compliance_web("encryption at rest requirements", ["hipaa", "gdpr"])
+
+# Example: General compliance search (no jurisdiction filter)
+search_compliance_web("data retention policy best practices")
+```
+
+**How it works:** Augments queries with jurisdiction-specific terms, geo-targets by region, searches CrustData web sources.
+
+#### 3. `fetch_regulation_content(urls)`
+Fetch full content from regulatory URLs and get AI-summarized compliance guidance.
+
+```
+# Example: Fetch and summarize official GDPR guidance
+fetch_regulation_content(["https://gdpr.eu/what-is-gdpr/", "https://ico.org.uk/for-organisations/guide-to-data-protection/"])
+```
+
+**How it works:** Uses CrustData Web Fetch to get full HTML (max 10 URLs), then passes each page through Gemini to extract: Key Requirements, Obligations, Penalties, and Implementation Guidance.
+
+#### 4. `get_regulatory_updates(jurisdictions, days?)`
+Get a severity-rated digest of what changed in the last N days.
+
+```
+# Example: What changed in GDPR this month?
+get_regulatory_updates(["gdpr"], days=30)
+
+# Example: All jurisdictions, last quarter
+get_regulatory_updates(["gdpr", "dpdp", "hipaa", "soc2"], days=90)
+```
+
+**How it works:** Searches CrustData news with date filtering (Unix timestamps), collects results across jurisdictions, then uses Gemini to produce a structured digest with `jurisdiction`, `change`, `severity` (critical/high/medium/low), and `action_required` for each update.
+
+#### 5. `ask_compliance_question(question, jurisdictions?)`
+Ask a compliance question and get an AI-synthesized answer.
+
+```
+# Example: Quick GDPR question
+ask_compliance_question("What are the GDPR requirements for cookie consent?", ["gdpr"])
+
+# Example: HIPAA encryption question
+ask_compliance_question("What encryption is required for HIPAA?", ["hipaa"])
+
+# Example: Cross-jurisdiction question
+ask_compliance_question("Can I store Indian user data on AWS US servers?", ["dpdp", "gdpr"])
+```
+
+**How it works:** First tries CrustData's `sources: ["ai"]` (Google AI Mode) for a direct synthesized answer at 1 credit. If AI mode returns no results, falls back to web search + Gemini summarization.
+
+### File Structure
+
+```
+integrations/
+├── __init__.py              # Exports CrustDataClient, ComplianceSearchEngine, register_crustdata_tools
+├── crustdata.py             # Async API client (web-search, web-fetch, rate throttling)
+├── compliance_search.py     # Compliance search engine (jurisdiction mapping, Gemini summarization, caching)
+└── crustdata_tools.py       # 5 MCP tool definitions with register_crustdata_tools(mcp)
+```
+
+### Integration into server.py
+
+```python
+from mcp.server.fastmcp import FastMCP
+from integrations import register_crustdata_tools
+
+mcp = FastMCP("compliance-shield")
+register_crustdata_tools(mcp)  # Registers all 5 CrustData tools
+```
+
+### Jurisdiction Configuration
+
+Each jurisdiction maps to a geolocation and search terms for optimal results:
+
+| Jurisdiction | Geo Code | Primary Search Terms | Regulatory Bodies |
+|-------------|----------|---------------------|-------------------|
+| `gdpr` | GB | GDPR, EU data protection, EDPB | edpb.europa.eu, gdpr.eu, ico.org.uk |
+| `dpdp` | IN | DPDP Act, India data protection | meity.gov.in |
+| `hipaa` | US | HIPAA, health data privacy, HHS | hhs.gov, hipaajournal.com |
+| `soc2` | US | SOC 2 compliance, AICPA trust services | aicpa.org |
+
+### Caching & Credits
+
+- Results are cached in-memory for 5 minutes to avoid burning credits on repeated queries
+- CrustData charges 1 credit per search query (regardless of `fetch_content`)
+- Web Fetch costs 1 credit per URL fetched
+- Built-in rate throttling ensures we stay under the 10 RPM limit
+
+---
 
 4-Hour Hackathon Execution Plan (3-4 Person Team)
 Team Roles
@@ -101,7 +246,7 @@ Sign up for API keys in parallel:
 
 
 Person A: Gemini API key (ai.google.dev) + Concierge SDK
-Person B: SafeDep (app.safedep.io) + Unsiloed AI (docs.unsiloed.ai)
+Person B: SafeDep (app.safedep.io) + Unsiloed AI (docs.unsiloed.ai) + CrustData (app.crustdata.com)
 Person C: Emergent.sh + Razorpay (test mode)
 Person D: GitHub repo init + project structure
 
@@ -116,6 +261,7 @@ bash
 - Create shared `.env`:
 ````
  GEMINI_API_KEY=...
+ CRUSTDATA_API_TOKEN=...
  SAFEDEP_API_KEY=...
  SAFEDEP_TENANT_ID=...
  UNSILOED_API_KEY=...
@@ -212,7 +358,15 @@ Include comments explaining each fix."""
 
    response = model.generate_content(prompt)
    return response.text
-Person B - SafeDep + Unsiloed Integration (60 min)
+Person B - SafeDep + Unsiloed + CrustData Integration (60 min)
+CrustData Compliance Intelligence (DONE - already built):
+The CrustData integration is complete in `integrations/`. To wire it into the MCP server, add one line to `server.py`:
+```python
+from integrations import register_crustdata_tools
+register_crustdata_tools(mcp)  # adds 5 compliance intelligence tools
+```
+This gives the MCP server: `search_compliance_news`, `search_compliance_web`, `fetch_regulation_content`, `get_regulatory_updates`, `ask_compliance_question`.
+
 SafeDep MCP tool (30 min):
 python
 import httpx
@@ -492,6 +646,7 @@ Create a project `.mcp.json` that any developer can drop into their project:
      "args": ["-m", "compliance_shield.server"],
      "env": {
        "GEMINI_API_KEY": "${GEMINI_API_KEY}",
+       "CRUSTDATA_API_TOKEN": "${CRUSTDATA_API_TOKEN}",
        "SAFEDEP_API_KEY": "${SAFEDEP_API_KEY}",
        "SAFEDEP_TENANT_ID": "${SAFEDEP_TENANT_ID}",
        "UNSILOED_API_KEY": "${UNSILOED_API_KEY}"
@@ -563,11 +718,13 @@ Backup plan (10 min): If live demo breaks, have screenshots/recording ready
 6. Show findings: "6 violations found - PII in logs, SQL injection, no consent, no encryption..."
 7. "One click to fix..." -> call `get_fixes` -> show the diff
 8. "And dependencies?" -> call `scan_dependencies` with a package.json -> show SafeDep blocking a malicious package
-9. "Generate a compliance report for your auditor..." -> call `generate_report`
-10. Quick flash of web dashboard on Emergent.sh showing reports and Razorpay pricing
+9. "What's new in GDPR this month?" -> call `search_compliance_news(["gdpr"])` -> show latest enforcement actions from CrustData
+10. "Quick question..." -> call `ask_compliance_question("What are the GDPR requirements for cookie consent?")` -> show AI-synthesized answer
+11. "Generate a compliance report for your auditor..." -> call `generate_report`
+12. Quick flash of web dashboard on Emergent.sh showing reports and Razorpay pricing
 
 **Close (30 sec):**
-"ComplianceShield is an MCP server. One line to install. Works in Claude Code, Cursor, Lovable, VSCode. Powered by Concierge workflow enforcement, SafeDep dependency scanning, Unsiloed AI policy parsing, Gemini for analysis, Razorpay for billing. Built on Emergent.sh. Your AI can code - now it can also lawyer. $99 a month."
+"ComplianceShield is an MCP server. One line to install. Works in Claude Code, Cursor, Lovable, VSCode. Powered by Concierge workflow enforcement, SafeDep dependency scanning, Unsiloed AI policy parsing, CrustData for real-time regulatory intelligence, Gemini for analysis, Razorpay for billing. Built on Emergent.sh. Your AI can code - now it can also lawyer. $99 a month."
 
 ---
 
@@ -580,6 +737,9 @@ Backup plan (10 min): If live demo breaks, have screenshots/recording ready
 | `rules/dpdp.json` | Person D | India DPDP Act rule definitions |
 | `rules/hipaa.json` | Person D | HIPAA rule definitions |
 | `rules/soc2.json` | Person D | SOC2 control definitions |
+| `integrations/crustdata.py` | Person B | CrustData Web Search + Web Fetch API client |
+| `integrations/compliance_search.py` | Person B | Compliance-aware search engine (jurisdiction queries + Gemini summarization) |
+| `integrations/crustdata_tools.py` | Person B | 5 CrustData MCP tools (news, web, fetch, updates, Q&A) |
 | `integrations/safedep.py` | Person B | SafeDep API wrapper |
 | `integrations/unsiloed.py` | Person B | Unsiloed AI parser wrapper |
 | `demo/bad-express-app.js` | Person D | Demo: insecure Node.js app |
@@ -608,10 +768,13 @@ Dashboard (on Emergent.sh - Person C):
 6. **Auto-fix:** Call `get_fixes` with findings -> returns unified diff
 7. **Scan dependencies:** Call `scan_dependencies` with package.json -> SafeDep returns safe/blocked
 8. **Upload policy:** Call `upload_policy` with GDPR PDF -> Unsiloed parses it
-9. **Generate report:** Call `generate_report` -> returns markdown compliance report
-10. **Concierge enforcement:** Try calling `generate_report` before scanning -> should be blocked (wrong stage)
-11. **Web dashboard:** Open Emergent.sh dashboard -> see scan history, reports, pricing
-12. **Razorpay checkout:** Click "Buy Pro" -> Razorpay test checkout opens
+9. **Compliance news:** Call `search_compliance_news(["gdpr", "dpdp"])` -> returns latest regulatory news from CrustData
+10. **Regulatory updates:** Call `get_regulatory_updates(["gdpr"], days=30)` -> returns digest of recent changes with severity ratings
+11. **Compliance Q&A:** Call `ask_compliance_question("What encryption is required for HIPAA?", ["hipaa"])` -> returns AI answer
+12. **Generate report:** Call `generate_report` -> returns markdown compliance report
+13. **Concierge enforcement:** Try calling `generate_report` before scanning -> should be blocked (wrong stage)
+14. **Web dashboard:** Open Emergent.sh dashboard -> see scan history, reports, pricing
+15. **Razorpay checkout:** Click "Buy Pro" -> Razorpay test checkout opens
 
 ---
 
@@ -620,7 +783,7 @@ Dashboard (on Emergent.sh - Person C):
 1. **It's LIVE, not post-hoc:** Works inside the IDE while you code, not a separate website
 2. **MCP is the right protocol:** One-line install into any AI coding tool
 3. **Concierge enforces compliance:** Can't skip security steps - protocol-level enforcement
-4. **5 sponsor tools integrated meaningfully** (not bolted on)
+4. **6 sponsor tools integrated meaningfully** (not bolted on)
 5. **Real problem, real business:** B2B founders need this to close enterprise deals
 6. **Demo is visceral:** Watching an MCP tool flag violations inside Claude Code in real-time is compelling
 7. **Pitch line sticks:** "Your AI can code, but it can't lawyer."

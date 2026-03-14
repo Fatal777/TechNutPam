@@ -1,0 +1,70 @@
+{
+  "jurisdiction": "SOC2",
+  "short_code": "soc2",
+  "full_name": "Service Organization Control 2 - Trust Services Criteria",
+  "rules": [
+    {
+      "id": "SOC2-1",
+      "rule": "Authentication required for all endpoints",
+      "description": "All API endpoints handling sensitive data must require authentication. No unauthenticated access to user data.",
+      "section": "CC6.1 - Logical and Physical Access Controls",
+      "severity": "critical",
+      "patterns": ["app.get", "app.post", "app.put", "app.delete", "router.", "@app.route"],
+      "fix_guidance": "Add authentication middleware (JWT, session, API key) to all sensitive endpoints. Implement rate limiting."
+    },
+    {
+      "id": "SOC2-2",
+      "rule": "Input validation and sanitization",
+      "description": "All user inputs must be validated and sanitized to prevent injection attacks (SQL, XSS, command injection).",
+      "section": "CC6.1 - Logical and Physical Access Controls",
+      "severity": "critical",
+      "patterns": ["req.body", "req.params", "req.query", "request.form", "input(", "${"],
+      "fix_guidance": "Use parameterized queries. Validate input types, lengths, and formats. Sanitize HTML output. Use an ORM."
+    },
+    {
+      "id": "SOC2-3",
+      "rule": "Error handling must not leak information",
+      "description": "Error messages must not expose internal system details, stack traces, database schemas, or configuration to end users.",
+      "section": "CC7.2 - System Operations",
+      "severity": "high",
+      "patterns": ["catch", "except", "error", "500", "stack", "trace"],
+      "fix_guidance": "Return generic error messages to users. Log detailed errors internally. Never expose stack traces in production."
+    },
+    {
+      "id": "SOC2-4",
+      "rule": "Secrets management",
+      "description": "API keys, passwords, tokens, and credentials must never be hardcoded. Use environment variables or a secrets manager.",
+      "section": "CC6.1 - Logical and Physical Access Controls",
+      "severity": "critical",
+      "patterns": ["password =", "api_key =", "secret =", "token =", "key =", "credential"],
+      "fix_guidance": "Use environment variables (process.env / os.environ). Use a secrets manager. Add sensitive files to .gitignore."
+    },
+    {
+      "id": "SOC2-5",
+      "rule": "HTTPS/TLS required",
+      "description": "All data in transit must be encrypted using TLS 1.2 or higher. No HTTP endpoints in production.",
+      "section": "CC6.7 - Encryption in Transit",
+      "severity": "high",
+      "patterns": ["http://", "HTTP", "port 80"],
+      "fix_guidance": "Use HTTPS for all endpoints. Configure TLS 1.2+ minimum. Implement HSTS headers. Redirect HTTP to HTTPS."
+    },
+    {
+      "id": "SOC2-6",
+      "rule": "Monitoring and alerting",
+      "description": "System must implement monitoring for security events, performance anomalies, and unauthorized access attempts.",
+      "section": "CC7.1 - System Monitoring",
+      "severity": "medium",
+      "patterns": [],
+      "fix_guidance": "Implement security event logging. Set up alerting for failed auth attempts. Monitor for unusual data access patterns."
+    },
+    {
+      "id": "SOC2-7",
+      "rule": "Change management controls",
+      "description": "All code changes must go through a review process. No direct commits to production branches.",
+      "section": "CC8.1 - Change Management",
+      "severity": "medium",
+      "patterns": [],
+      "fix_guidance": "Enforce PR reviews. Use CI/CD pipelines with automated testing. Implement branch protection rules."
+    }
+  ]
+}

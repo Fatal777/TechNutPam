@@ -1,0 +1,79 @@
+{
+  "jurisdiction": "GDPR (EU)",
+  "short_code": "gdpr",
+  "full_name": "General Data Protection Regulation",
+  "rules": [
+    {
+      "id": "GDPR-1",
+      "rule": "No PII in logs",
+      "description": "Personal data (names, emails, IPs, phone numbers, SSNs, etc.) must never be logged to console, files, monitoring systems, or error tracking services.",
+      "article": "Art. 5(1)(f) - Integrity and Confidentiality",
+      "severity": "critical",
+      "patterns": ["console.log", "console.error", "logger.", "print(", "logging."],
+      "fix_guidance": "Replace PII with anonymized identifiers or hash values. Use structured logging that redacts sensitive fields."
+    },
+    {
+      "id": "GDPR-2",
+      "rule": "Encryption at rest",
+      "description": "Personal data must be encrypted when stored in databases, files, or any persistent storage.",
+      "article": "Art. 32 - Security of Processing",
+      "severity": "critical",
+      "patterns": ["INSERT INTO", "db.save", "fs.writeFile", "localStorage", ".set("],
+      "fix_guidance": "Use AES-256 encryption for data at rest. Use encrypted database columns or encrypted file storage."
+    },
+    {
+      "id": "GDPR-3",
+      "rule": "Explicit consent required",
+      "description": "Must obtain explicit, informed user consent before collecting, processing, or storing any personal data. Consent must be freely given, specific, and unambiguous.",
+      "article": "Art. 7 - Conditions for Consent",
+      "severity": "high",
+      "patterns": ["req.body", "request.form", "formData", "input", "POST /register", "POST /signup"],
+      "fix_guidance": "Add a consent checkbox/mechanism. Store consent records with timestamp. Provide consent withdrawal option."
+    },
+    {
+      "id": "GDPR-4",
+      "rule": "Right to deletion (Right to be Forgotten)",
+      "description": "Must implement a mechanism for users to request and receive deletion of all their personal data.",
+      "article": "Art. 17 - Right to Erasure",
+      "severity": "high",
+      "patterns": [],
+      "fix_guidance": "Implement DELETE /user/:id endpoint that removes all user data. Add data retention policies with automatic purging."
+    },
+    {
+      "id": "GDPR-5",
+      "rule": "Data minimization",
+      "description": "Only collect personal data that is strictly necessary for the stated purpose. Do not collect SSN, national ID, or biometric data unless essential.",
+      "article": "Art. 5(1)(c) - Data Minimisation",
+      "severity": "medium",
+      "patterns": ["ssn", "social_security", "national_id", "passport", "biometric"],
+      "fix_guidance": "Remove unnecessary data fields. Document the purpose for each data field collected."
+    },
+    {
+      "id": "GDPR-6",
+      "rule": "No cross-border transfer without safeguards",
+      "description": "Personal data cannot be transferred outside the EU/EEA without adequate protection measures (Standard Contractual Clauses, adequacy decisions, etc.).",
+      "article": "Art. 46 - Transfers Subject to Appropriate Safeguards",
+      "severity": "high",
+      "patterns": ["us-east", "us-west", "ap-south", "amazonaws.com", "azure", "gcp"],
+      "fix_guidance": "Use EU-based data centers (eu-west-1, eu-central-1). Implement data residency controls."
+    },
+    {
+      "id": "GDPR-7",
+      "rule": "SQL injection prevention",
+      "description": "All database queries must use parameterized queries to prevent SQL injection, which could lead to unauthorized access to personal data.",
+      "article": "Art. 32 - Security of Processing",
+      "severity": "critical",
+      "patterns": ["${", "' +", "\" +", "f\"SELECT", "f\"INSERT", "string concatenation in SQL"],
+      "fix_guidance": "Use parameterized queries (?, $1, :param). Use an ORM. Never concatenate user input into SQL."
+    },
+    {
+      "id": "GDPR-8",
+      "rule": "No hardcoded secrets",
+      "description": "API keys, database passwords, and credentials must never be hardcoded in source code where they could be exposed.",
+      "article": "Art. 32 - Security of Processing",
+      "severity": "critical",
+      "patterns": ["password =", "api_key =", "secret =", "token =", "DB_PASSWORD"],
+      "fix_guidance": "Use environment variables. Use a secrets manager (AWS Secrets Manager, HashiCorp Vault). Add secrets to .gitignore."
+    }
+  ]
+}

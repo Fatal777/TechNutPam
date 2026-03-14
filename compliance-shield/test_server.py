@@ -25,10 +25,6 @@ import sys
 import traceback
 from pathlib import Path
 
-from dotenv import load_dotenv
-
-load_dotenv()
-
 # ── Import server tools directly ──────────────────────────────────────────────
 # We import the tool functions from server.py to call them in isolation.
 # This bypasses MCP transport and Concierge staging so tests run fast.
@@ -224,7 +220,7 @@ async def test_compliance_wrap_fallback():
 # ─────────────────────────────────────────────────────────────────────────────
 @test("scan_code: returns JSON findings for bad code (requires GEMINI_API_KEY)")
 async def test_scan_code_bad():
-    if not os.getenv("GEMINI_API_KEY"):
+    if not getattr(__import__("server"), "GEMINI_API_KEY", None):
         return "skip"
 
     import server as srv
@@ -253,7 +249,7 @@ app.post("/register", (req, res) => {
 
 @test("scan_code: increments scan counter")
 async def test_scan_code_counter():
-    if not os.getenv("GEMINI_API_KEY"):
+    if not getattr(__import__("server"), "GEMINI_API_KEY", None):
         return "skip"
 
     import server as srv
@@ -302,7 +298,7 @@ async def test_scan_deps_invalid_json():
 
 @test("scan_dependencies: scans real packages via SafeDep (requires SAFEDEP_API_KEY)")
 async def test_scan_deps_real():
-    if not os.getenv("SAFEDEP_API_KEY"):
+    if not getattr(__import__("server"), "SAFEDEP_API_KEY", None):
         return "skip"
 
     import server as srv
@@ -329,7 +325,7 @@ async def test_scan_deps_real():
 # ─────────────────────────────────────────────────────────────────────────────
 @test("get_fixes: uses cached findings when called with no args (requires GEMINI_API_KEY)")
 async def test_get_fixes_cached():
-    if not os.getenv("GEMINI_API_KEY"):
+    if not getattr(__import__("server"), "GEMINI_API_KEY", None):
         return "skip"
 
     import server as srv
@@ -415,7 +411,7 @@ async def test_apply_fix_missing_file():
 # ─────────────────────────────────────────────────────────────────────────────
 @test("generate_report: produces structured markdown (requires GEMINI_API_KEY)")
 async def test_generate_report():
-    if not os.getenv("GEMINI_API_KEY"):
+    if not getattr(__import__("server"), "GEMINI_API_KEY", None):
         return "skip"
 
     import server as srv
@@ -466,13 +462,12 @@ async def test_demo_files():
     assert (base / "bad-package.json").exists(), "Missing bad-package.json"
     return True
 
-@test("smoke: .env.example has all required keys")
-async def test_env_example():
-    path = Path(__file__).parent / ".env.example"
-    assert path.exists(), "Missing .env.example"
+@test("smoke: API keys are hardcoded in server.py")
+async def test_api_keys_present():
+    path = Path(__file__).parent / "server.py"
     content = path.read_text()
-    for key in ["GEMINI_API_KEY", "SAFEDEP_API_KEY", "SAFEDEP_TENANT_ID", "UNSILOED_API_KEY"]:
-        assert key in content, f"Missing {key} in .env.example"
+    for key in ["GEMINI_API_KEY", "SAFEDEP_API_KEY", "SAFEDEP_TENANT_ID", "CRUSTDATA_API_TOKEN"]:
+        assert key in content, f"Missing {key} constant in server.py"
     return True
 
 

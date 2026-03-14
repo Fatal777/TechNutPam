@@ -4,7 +4,7 @@ ComplianceShield MCP Server
 A Concierge-wrapped MCP server that enforces compliance at the protocol level.
 
 Architecture (from master plan):
-  Stage 1: configure   → set_jurisdictions, upload_policy
+  Stage 1: configure   → set_jurisdictions
   Stage 2: wrap_prompt → compliance_wrap          (BEFORE code gen)
   Stage 3: scan        → scan_code, scan_dependencies  (AFTER code exists)
   Stage 4: remediate   → get_fixes, apply_fix
@@ -13,31 +13,31 @@ Architecture (from master plan):
 Sponsor integrations:
   - Concierge   : workflow stage enforcement (this file)
   - SafeDep     : dependency malware scanning (scan_dependencies)
-  - Unsiloed AI : compliance PDF parsing (upload_policy)
   - Gemini API  : code analysis + remediation (scan_code, get_fixes, generate_report)
   - Emergent.sh : web dashboard (separate — see Person C)
-  - Razorpay    : billing (separate — see Person C)
 
 Usage:
   stdio (Claude Code / Cursor):  python server.py
   HTTP  (Lovable / remote):       python server.py --http
 """
 
-import asyncio
 import json
 import os
 import sys
 
 import httpx
-from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 
 import google.generativeai as genai
 
-load_dotenv()
+# ── API Keys ──────────────────────────────────────────────────────────────────
+GEMINI_API_KEY      = "AIzaSyAMcMTXwqL1KVvFRD11WvRo-CGUwgdXuJM"
+SAFEDEP_API_KEY     = "sfd_sTm9Ij-e-BHd_9WE_wiwkqr7PN6ijxt_K0NrVjskMBeOCRJgdxRBhVqx"
+SAFEDEP_TENANT_ID   = "default-team.technutapm.safedep.io"
+CRUSTDATA_API_TOKEN = "340b6f6b71f89771df811206e81be5788e173e74"
 
 # ── Gemini setup ──────────────────────────────────────────────────────────────
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel("gemini-2.0-flash")
 
 # ── FastMCP instance (tools registered here, Concierge wraps below) ───────────
@@ -50,7 +50,7 @@ mcp = FastMCP("compliance-shield")
 # Called by compliance_wrap and scan_code.
 # NOTE: This was missing from the original plan and caused NameError crashes.
 # ═══════════════════════════════════════════════════════════════════════════════
-def load_rules(jurisdictions: list[str], custom_rules: list[str] | None = None) -> str:
+def load_rules(jurisdictions: list[str]) -> str:
     """Load and format compliance rules for the given jurisdictions."""
     rules_text = []
     base_dir = os.path.dirname(__file__)
@@ -65,11 +65,6 @@ def load_rules(jurisdictions: list[str], custom_rules: list[str] | None = None) 
                 rules_text.append(f"  [{rule['id']}] {rule['rule']}: {rule['description']} ({ref})")
         else:
             rules_text.append(f"  [WARNING] No rule file found for jurisdiction: {j}")
-
-    if custom_rules:
-        rules_text.append("\n  CUSTOM POLICY RULES (parsed via Unsiloed AI):")
-        for doc in custom_rules[:3]:
-            rules_text.append(f"  {doc[:500]}")  # cap at 500 chars per doc
 
     return "\n".join(rules_text) if rules_text else "No rules loaded."
 
@@ -106,57 +101,6 @@ async def set_jurisdictions(jurisdictions: list[str]) -> str:
     )
 
 
-@mcp.tool()
-async def upload_policy(file_path: str) -> str:
-    """
-    Parse a compliance policy PDF using Unsiloed AI and extract rules.
-    Supports any GDPR, DPDP, HIPAA, or SOC2 policy document.
-
-    The parsed rules are stored in session state and automatically
-    included in future scan_code and compliance_wrap calls.
-    """
-    if not os.path.exists(file_path):
-        return f"❌ File not found: {file_path}"
-
-    async with httpx.AsyncClient(timeout=120) as client:
-        try:
-            with open(file_path, "rb") as f:
-                resp = await client.post(
-                    "https://prod.visionapi.unsiloed.ai/parse",
-                    headers={"api-key": os.getenv("UNSILOED_API_KEY", "")},
-                    files={"file": f},
-                )
-            resp.raise_for_status()
-            job_id = resp.json().get("job_id")
-            if not job_id:
-                return "❌ No job_id returned from Unsiloed AI. Check your API key."
-
-            for attempt in range(30):
-                await asyncio.sleep(2)
-                result = await client.get(
-                    f"https://prod.visionapi.unsiloed.ai/parse/{job_id}",
-                    headers={"api-key": os.getenv("UNSILOED_API_KEY", "")},
-                )
-                data = result.json()
-                if data.get("status") == "completed":
-                    parsed = data.get("result", {}).get("markdown", "")
-                    existing = app.get_state("custom_rules") or []
-                    existing.append(parsed)
-                    app.set_state("custom_rules", existing)
-                    return (
-                        f"✅ Policy parsed successfully.\n"
-                        f"Extracted {len(parsed)} characters of compliance rules.\n"
-                        f"Custom rules are now active for scanning and prompt wrapping."
-                    )
-                elif data.get("status") == "failed":
-                    return f"❌ Parsing failed: {data.get('error', 'unknown error')}"
-
-            return "⚠️ Parsing timed out after 60s. Try again."
-
-        except Exception as e:
-            return f"❌ Error calling Unsiloed AI: {str(e)}"
-
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # STAGE 2: wrap_prompt
 # Tools: compliance_wrap
@@ -178,8 +122,7 @@ async def compliance_wrap(user_prompt: str) -> str:
     (Stage 3) because it operates at different timing: pre-generation vs post-generation.
     """
     jurisdictions = app.get_state("jurisdictions") or ["gdpr"]
-    custom_rules = app.get_state("custom_rules")
-    rules = load_rules(jurisdictions, custom_rules)
+    rules = load_rules(jurisdictions)
 
     wrapped = f"""You are generating code that MUST comply with: {', '.join(j.upper() for j in jurisdictions)}.
 
@@ -222,8 +165,7 @@ async def scan_code(code: str, filename: str = "unknown") -> str:
     compliance injection, use compliance_wrap (Stage 2) instead.
     """
     jurisdictions = app.get_state("jurisdictions") or ["gdpr"]
-    custom_rules = app.get_state("custom_rules")
-    rules = load_rules(jurisdictions, custom_rules)
+    rules = load_rules(jurisdictions)
 
     # Billing counter — persists in session (for full persistence use SQLite)
     count = (app.get_state("scan_count") or 0) + 1
@@ -315,8 +257,8 @@ async def scan_dependencies(package_json: str) -> str:
                 resp = await client.post(
                     "https://api.safedep.io/safedep.services.malysis.v1.MalwareAnalysisService/QueryPackageAnalysis",
                     headers={
-                        "Authorization": os.getenv("SAFEDEP_API_KEY", ""),
-                        "X-Tenant-ID": os.getenv("SAFEDEP_TENANT_ID", ""),
+                        "Authorization": SAFEDEP_API_KEY,
+                        "X-Tenant-ID": SAFEDEP_TENANT_ID,
                         "Content-Type": "application/json",
                     },
                     json={
@@ -600,7 +542,7 @@ try:
 
     # 5-stage workflow — mirrors the master plan architecture
     app.stages = {
-        "configure":    ["set_jurisdictions", "upload_policy"],
+        "configure":    ["set_jurisdictions"],
         "wrap_prompt":  ["compliance_wrap"],
         "scan":         ["scan_code", "scan_dependencies"],
         "remediate":    ["get_fixes", "apply_fix"],

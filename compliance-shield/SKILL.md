@@ -16,19 +16,10 @@ claude mcp add compliance-shield --transport stdio -- python /path/to/compliance
 
 Or drop the `.mcp.json` file into your project root and Claude Code will auto-detect it.
 
-### 2. Set environment variables
-```bash
-export GEMINI_API_KEY=your_key
-export SAFEDEP_API_KEY=your_key
-export SAFEDEP_TENANT_ID=your_tenant_id
-export UNSILOED_API_KEY=your_key
-```
-
-### 3. Verify connection
+### 2. Verify connection
 In Claude Code, run `/mcp` — you should see `compliance-shield` listed as connected
-with the following tools available (Stage 1 — configure):
+with the following tool available (Stage 1 — configure):
 - `set_jurisdictions`
-- `upload_policy`
 
 ---
 
@@ -45,12 +36,6 @@ Tell the server which regulations apply to your project.
 set_jurisdictions(["gdpr", "dpdp"])
 ```
 Supported values: `gdpr`, `dpdp`, `hipaa`, `soc2`
-
-Optionally upload a custom compliance policy PDF:
-```
-upload_policy("/path/to/your-company-gdpr-policy.pdf")
-```
-Unsiloed AI parses the PDF and adds its rules to all future scans.
 
 ---
 
@@ -168,4 +153,3 @@ compliance_review(code="<your code>", language="javascript")
 - **Pro (₹8,299/month):** Unlimited scans, all 4 jurisdictions, reports
 - **Enterprise (₹4,16,000/year):** Everything + audit trail export + security whitepaper
 
-Upgrade at: https://complianceshield.emergent.sh/pricing

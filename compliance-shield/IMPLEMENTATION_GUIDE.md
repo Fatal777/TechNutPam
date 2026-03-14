@@ -31,8 +31,7 @@ Developer's IDE (Claude Code / Cursor / Lovable / VSCode)
 +--[Concierge Wrapper]-- Enforces compliance workflow stages
 |
 |  Stage 1: "configure"
-|    Tools: set_jurisdictions, upload_policy
-|    Sponsors: Unsiloed AI (upload_policy parses compliance PDFs)
+|    Tools: set_jurisdictions
 |
 |  Stage 2: "wrap_prompt"
 |    Tools: compliance_wrap
@@ -52,20 +51,16 @@ Developer's IDE (Claude Code / Cursor / Lovable / VSCode)
 |    Sponsors: Gemini API (report generation), Emergent.sh (displays reports)
 |
 +--[Emergent.sh Dashboard]-- Web UI for reports, jurisdiction config, billing
-       |
-       v
-  [Razorpay] -- Billing for SaaS plans
 ```
 
-**5 Sponsor Tools — All Meaningfully Integrated:**
+**Sponsor Tools — All Meaningfully Integrated:**
 
 | Sponsor | Tool | Stage | What it does |
 |---------|------|-------|-------------|
 | Concierge | Workflow wrapper | All | Protocol-level stage enforcement — can't skip scans |
 | SafeDep | scan_dependencies | Stage 3 | Malware/vuln scanning of npm packages, fail-closed |
-| Unsiloed AI | upload_policy | Stage 1 | Parses GDPR/DPDP/HIPAA/SOC2 PDFs into rule text |
-| Emergent.sh | Dashboard | Stage 5 | Web UI showing scan results, reports, Razorpay pricing |
-| Razorpay | Pricing page | Stage 5 | Payment checkout for Free/Pro/Enterprise plans |
+| CrustData | Real-time intel | Stage 2–3 | Live compliance news and regulatory updates |
+| Emergent.sh | Dashboard | Stage 5 | Web UI showing scan results, reports, pricing |
 | Gemini API | scan_code, get_fixes, generate_report | Stages 3–5 | Core AI engine |
 
 ---
@@ -170,8 +165,7 @@ compliance-shield/
 │   └── soc2.json                ← Person D | SOC2 controls (7 rules, CC refs)
 │
 ├── integrations/
-│   ├── safedep.py               ← Person B | SafeDep REST API wrapper
-│   └── unsiloed.py              ← Person B | Unsiloed AI async polling wrapper
+│   └── safedep.py               ← Person B | SafeDep REST API wrapper
 │
 ├── demo/
 │   ├── bad-express-app.js       ← Person D | 8-violation demo app (Node.js)
@@ -196,9 +190,9 @@ All four people work in parallel:
 (confirm exact PyPI package name — use `pip install concierge` not `concierge-sdk`).
 
 **Person B:** Sign up for SafeDep at app.safedep.io (get API key + Tenant ID),
-sign up for Unsiloed AI at docs.unsiloed.ai.
 
-**Person C:** Create Emergent.sh project, get Razorpay test API keys.
+
+**Person C:** Create Emergent.sh project.
 
 **Person D:** Clone/init GitHub repo, create the directory structure, commit rules/ files.
 
@@ -240,7 +234,7 @@ This test resolves Risk 1 (tool decoration) and Risk 3 (state access) in 5 minut
 
 **Person B (60 min):** Implement the integrations
 - SafeDep: Use `integrations/safedep.py` as reference — wire into `scan_dependencies` in server.py
-- Unsiloed AI: Use `integrations/unsiloed.py` as reference — wire into `upload_policy` in server.py
+
 
 **Person C (60 min):** Build Emergent.sh dashboard
 Use this prompt verbatim in Emergent.sh:
@@ -262,8 +256,6 @@ PAGE 4 - Pricing:
   Free: 10 scans/month, 1 jurisdiction
   Pro INR 8,299/month: unlimited scans, all jurisdictions, reports
   Enterprise INR 4,16,000/year: everything + audit trail
-  Razorpay payment buttons in test mode.
-
 Dark theme, modern SaaS look, responsive.
 ```
 
@@ -284,7 +276,7 @@ Dark theme, modern SaaS look, responsive.
 
 **Person B (60 min):** Integration testing
 - Test SafeDep with `express`, `lodash`, `flatmap-stream` (should flag flatmap-stream)
-- Test Unsiloed AI with a GDPR PDF — confirm parsed text is stored in state
+
 - Add timeout handling and error fallbacks throughout
 
 **Person C (60 min):** Dashboard API wiring
@@ -300,7 +292,7 @@ Then test all 9 verification steps, document failures, feed to team.
 
 ---
 
-### Hour 3 (2:15 – 3:15): Polish + Razorpay
+### Hour 3 (2:15 – 3:15): Polish
 
 **Person A (30 min):** Create `.mcp.json`, verify HTTP mode works, write SKILL.md
 **Person A (30 min):** Add scan counter state tracking, final Concierge transition testing
@@ -312,20 +304,9 @@ python server.py --http
 ```
 Test from Lovable: Settings → Connectors → New MCP Server → `http://localhost:8080`
 
-**Person C (60 min):** Razorpay integration on Emergent.sh pricing page
-```javascript
-const rzp = new Razorpay({
-  key_id: "rzp_test_...",
-  amount: 829900,  // INR 8,299 in paise
-  currency: "INR",
-  name: "ComplianceShield",
-  description: "Pro Plan — All Jurisdictions",
-  handler: function(response) {
-    alert("Payment successful! All jurisdictions unlocked.");
-  }
-});
-rzp.open();
-```
+**Person C (60 min):** Pricing page on Emergent.sh
+- Free / Pro (₹8,299/mo) / Enterprise (₹4,16,000/yr) plan cards
+- CTA buttons linking to sign-up flow
 
 **Person D (60 min):** Demo script prep + backup slides + 3x full rehearsal
 
@@ -370,13 +351,13 @@ rzp.open();
    → Show SafeDep flagging `flatmap-stream` as malware
 8. *"Now the report for your auditor..."*
    → Call `generate_report` → show the professional markdown output
-9. Flash of Emergent.sh dashboard showing scan history and Razorpay pricing page
+9. Flash of Emergent.sh dashboard showing scan history
 
 ### Close (30 sec)
 > "ComplianceShield is an MCP server. One line to install. Works in Claude Code,
 > Cursor, Lovable, VSCode. Powered by Concierge workflow enforcement, SafeDep
-> dependency scanning, Unsiloed AI policy parsing, Gemini for analysis,
-> Razorpay for billing. Built on Emergent.sh.
+> dependency scanning, CrustData real-time intelligence, Gemini for analysis.
+> Built on Emergent.sh.
 > Your AI can code — now it can also lawyer. $99 a month."
 
 ---
@@ -385,7 +366,7 @@ rzp.open();
 
 ```
 1. ✅ Install: claude mcp add compliance-shield --transport stdio -- python server.py
-2. ✅ /mcp shows compliance-shield green with 7 tools (in configure stage)
+2. ✅ /mcp shows compliance-shield green with 6 tools (in configure stage)
 3. ✅ set_jurisdictions(["gdpr", "dpdp"]) → "Active jurisdictions: GDPR, DPDP"
 4. ✅ compliance_wrap("build login form") → wrapped prompt with rules injected
 5. ✅ scan_code(bad_express_app_contents) → JSON with 8 violations
@@ -393,11 +374,9 @@ rzp.open();
 7. ✅ apply_fix("demo/bad-express-app.js", fixed_code) → file written, .bak created
 8. ✅ scan_dependencies(bad_package_json_contents) → flatmap-stream BLOCKED
 9. ✅ generate_report() → professional markdown audit report
-10. ✅ upload_policy("path/to/gdpr.pdf") → "Policy parsed, N chars extracted"
-11. ✅ CONCIERGE ENFORCEMENT: call generate_report from scan stage → blocked
-12. ✅ HTTP mode: python server.py --http → connects from Lovable
-13. ✅ Web dashboard: Emergent.sh shows scan history, reports, Razorpay pricing
-14. ✅ Razorpay: Click "Buy Pro" → test checkout opens
+10. ✅ CONCIERGE ENFORCEMENT: call generate_report from scan stage → blocked
+11. ✅ HTTP mode: python server.py --http → connects from Lovable
+12. ✅ Web dashboard: Emergent.sh shows scan history and reports
 ```
 
 ---
@@ -411,9 +390,8 @@ rzp.open();
 | 3 | Concierge transitions are automatic or require `app.transition_to()` | Person A | Demo stuck in configure |
 | 4 | Gemini API key active and `gemini-2.0-flash` model accessible | Person A | All AI tools broken |
 | 5 | SafeDep API key + Tenant ID accepted by /QueryPackageAnalysis | Person B | scan_dependencies broken |
-| 6 | Unsiloed AI API key accepted by /parse endpoint | Person B | upload_policy broken |
+| 6 | CrustData API token active and returning results | Person B | No real-time intel |
 | 7 | Emergent.sh project can be shared as public URL | Person C | No dashboard to show |
-| 8 | Razorpay test checkout opens (rzp_test_ keys) | Person C | No billing demo |
 
 ---
 

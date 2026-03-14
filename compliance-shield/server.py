@@ -70,6 +70,69 @@ def load_rules(jurisdictions: list[str]) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# HELPER: Repository discovery
+# Discovers code files for scan_repository. Skips common build/dep directories.
+# ═══════════════════════════════════════════════════════════════════════════════
+CODE_EXTENSIONS = {".js", ".jsx", ".ts", ".tsx", ".py", ".mjs", ".cjs"}
+SKIP_DIRS = {"node_modules", "venv", ".venv", "__pycache__", ".git", "dist", "build", ".next", ".nuxt", "vendor", "coverage", ".turbo"}
+
+
+def _discover_code_files(root_path: str, max_files: int = 50) -> list[str]:
+    """Discover code files under root_path, respecting skip dirs. Returns absolute paths."""
+    root = os.path.abspath(os.path.expanduser(root_path))
+    if not os.path.isdir(root):
+        return []
+    found = []
+    for dirpath, dirnames, filenames in os.walk(root, topdown=True):
+        # Prune skip dirs from descent
+        dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
+        for f in filenames:
+            ext = os.path.splitext(f)[1].lower()
+            if ext in CODE_EXTENSIONS:
+                found.append(os.path.join(dirpath, f))
+                if len(found) >= max_files:
+                    return found
+    return found
+
+
+def _run_single_file_scan(code: str, filename: str, jurisdictions: list[str], rules_text: str) -> tuple[list, str]:
+    """Run Gemini scan on one file. Returns (findings_list, raw_json_text)."""
+    prompt = f"""You are a compliance auditor. Analyze this code for violations.
+
+Active jurisdictions: {', '.join(j.upper() for j in jurisdictions)}
+
+Rules to check:
+{rules_text}
+
+Code to audit ({filename}):
+```
+{code}
+```
+
+Return ONLY a valid JSON array of findings (no other text, no markdown fences):
+[
+  {{
+    "severity": "critical",
+    "jurisdiction": "GDPR",
+    "rule_id": "GDPR-1",
+    "rule": "No PII in logs",
+    "line": 12,
+    "violation": "SSN logged to console in plain text",
+    "fixedCode": "console.log(`New user: ${{name}}, ${{email}}`);  // SSN removed"
+  }}
+]
+
+If no violations found, return: []"""
+    try:
+        response = model.generate_content(prompt)
+        raw = response.text.strip().strip("```json").strip("```").strip()
+        findings = json.loads(raw)
+        return (findings, raw)
+    except (json.JSONDecodeError, Exception):
+        return ([], "[]")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # STAGE 1: configure
 # Tools: set_jurisdictions, upload_policy
 # Purpose: Tell the server which regulations apply and optionally load custom PDFs
@@ -300,6 +363,135 @@ async def scan_dependencies(package_json: str) -> str:
     }
     app.set_state("dep_scan_results", json.dumps(summary))
     return json.dumps(summary, indent=2)
+
+
+@mcp.tool()
+async def scan_repository(root_path: str = ".", max_files: int = 30, include_dependencies: bool = True) -> str:
+    """
+    Scan a local repository or directory for compliance violations.
+
+    Discovers all code files (.js, .jsx, .ts, .tsx, .py) under root_path, scans each
+    against active jurisdictions, and optionally runs dependency audit on package.json.
+    Results are cached for generate_report — call that next for an audit-ready report.
+
+    Use this for real codebase analysis. Pass "." for current dir, or a path like
+    ".." or "/absolute/path/to/project" for your workspace.
+
+    Example: scan_repository(root_path="..")  — scans parent directory (whole project)
+    """
+    root = os.path.abspath(os.path.expanduser(root_path))
+    if not os.path.isdir(root):
+        return f"❌ Path does not exist or is not a directory: {root}"
+
+    jurisdictions = app.get_state("jurisdictions") or ["gdpr"]
+    rules = load_rules(jurisdictions)
+
+    files = _discover_code_files(root, max_files)
+    if not files:
+        return f"❌ No code files found under {root} (supported: {', '.join(CODE_EXTENSIONS)})"
+
+    all_findings = []
+    by_severity = {"critical": 0, "high": 0, "medium": 0, "low": 0}
+
+    for filepath in files:
+        try:
+            with open(filepath, "r", encoding="utf-8", errors="replace") as f:
+                code = f.read()
+        except Exception as e:
+            all_findings.append({
+                "file": filepath,
+                "severity": "medium",
+                "rule_id": "SCAN-ERR",
+                "rule": "File read error",
+                "violation": str(e),
+                "line": 0,
+            })
+            by_severity["medium"] = by_severity.get("medium", 0) + 1
+            continue
+
+        rel_path = os.path.relpath(filepath, root)
+        findings, _ = _run_single_file_scan(code, rel_path, jurisdictions, rules)
+        for f in findings:
+            f["file"] = rel_path
+            all_findings.append(f)
+            s = f.get("severity", "low").lower()
+            by_severity[s] = by_severity.get(s, 0) + 1
+
+    # Optional: scan package.json
+    dep_note = ""
+    for candidate in ["package.json", "frontend/package.json", "backend/package.json"]:
+        pkg_path = os.path.join(root, candidate)
+        if os.path.isfile(pkg_path) and include_dependencies:
+            try:
+                with open(pkg_path, "r") as f:
+                    pkg_json = f.read()
+                dep_result = await scan_dependencies(pkg_json)
+                dep_note = f"\n\nDependency scan ({candidate}):\n{dep_result}"
+                break
+            except Exception:
+                pass
+
+    count = (app.get_state("scan_count") or 0) + 1
+    app.set_state("scan_count", count)
+    repo_findings_json = json.dumps(all_findings, indent=2)
+    app.set_state("last_findings", repo_findings_json)
+    app.set_state("repo_scan_root", root)
+
+    summary = (
+        f"🔍 Repository scan complete: {root}\n"
+        f"Scanned {len(files)} file(s) | Found {len(all_findings)} violation(s): "
+        f"{by_severity['critical']} critical, {by_severity['high']} high, "
+        f"{by_severity['medium']} medium, {by_severity['low']} low\n\n"
+        f"Next: call generate_report() for an audit-ready report.{dep_note}"
+    )
+    return summary
+
+
+@mcp.tool()
+async def scan_file(file_path: str) -> str:
+    """
+    Scan a single file from disk for compliance violations.
+
+    Reads the file at file_path (relative to cwd or absolute) and runs a compliance
+    audit. Results are cached for get_fixes and generate_report. Use apply_fix
+    after get_fixes to write fixes back to disk.
+
+    Example: scan_file(file_path="frontend/src/App.js")
+    """
+    path = os.path.abspath(os.path.expanduser(file_path))
+    if not os.path.isfile(path):
+        return f"❌ File not found: {path}"
+
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            code = f.read()
+    except Exception as e:
+        return f"❌ Error reading file: {e}"
+
+    jurisdictions = app.get_state("jurisdictions") or ["gdpr"]
+    rules = load_rules(jurisdictions)
+
+    count = (app.get_state("scan_count") or 0) + 1
+    app.set_state("scan_count", count)
+    app.set_state("last_scan_code", code)
+    app.set_state("last_scan_file", path)
+
+    findings, raw = _run_single_file_scan(code, file_path, jurisdictions, rules)
+    app.set_state("last_findings", raw)
+
+    by_severity = {"critical": 0, "high": 0, "medium": 0, "low": 0}
+    for f in findings:
+        s = f.get("severity", "low").lower()
+        by_severity[s] = by_severity.get(s, 0) + 1
+
+    return (
+        f"🔍 Scan complete for {file_path}\n"
+        f"Found {len(findings)} violation(s): "
+        f"{by_severity['critical']} critical, {by_severity['high']} high, "
+        f"{by_severity['medium']} medium, {by_severity['low']} low\n\n"
+        f"Findings:\n{raw}\n\n"
+        f"Next: get_fixes() for remediation, or generate_report() for full audit."
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -544,7 +736,7 @@ try:
     app.stages = {
         "configure":    ["set_jurisdictions"],
         "wrap_prompt":  ["compliance_wrap"],
-        "scan":         ["scan_code", "scan_dependencies"],
+        "scan":         ["scan_code", "scan_dependencies", "scan_repository", "scan_file"],
         "remediate":    ["get_fixes", "apply_fix"],
         "report":       ["generate_report"],
     }
@@ -562,9 +754,23 @@ try:
 
 except ImportError:
     # Graceful fallback: run as plain FastMCP if concierge is not installed.
-    # ALL TOOLS remain available without stage enforcement.
-    # Install with: pip install concierge
-    app = mcp
+    # Wraps FastMCP with a simple in-memory state store so all tools work.
+    # Install concierge for full stage enforcement: pip install concierge
+    class _StatefulMCP:
+        """FastMCP wrapper that adds set_state/get_state for tools to use."""
+        def __init__(self, fmcp):
+            self._mcp = fmcp
+            self._state = {}
+        def set_state(self, key, value):
+            self._state[key] = value
+        def get_state(self, key, default=None):
+            return self._state.get(key, default)
+        def run(self, **kwargs):
+            self._mcp.run(**kwargs)
+        def streamable_http_app(self):
+            return self._mcp.streamable_http_app()
+
+    app = _StatefulMCP(mcp)
     print(
         "⚠️  WARNING: concierge package not found. Running without stage enforcement.\n"
         "   Install with: pip install concierge",

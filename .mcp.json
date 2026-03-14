@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "compliance-shield": {
+      "command": "python",
+      "args": ["compliance-shield/server.py"],
+      "cwd": "."
+    }
+  }
+}

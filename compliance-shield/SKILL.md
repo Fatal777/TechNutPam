@@ -53,6 +53,20 @@ Returns a compliance-injected prompt. Paste the output as your next message to C
 ### Stage 3 — Scan (post-generation)
 After code exists, scan it for violations.
 
+**Tool:** `scan_repository` — **Scan your whole codebase**
+```
+scan_repository(root_path=".", max_files=30, include_dependencies=True)
+```
+Discovers all code files (.js, .jsx, .ts, .tsx, .py) under the path, scans each for
+compliance violations, and optionally runs SafeDep on package.json. Use `"."` for
+current directory or `".."` to scan the parent. Results are cached for `generate_report`.
+
+**Tool:** `scan_file` — Scan a single file from disk
+```
+scan_file(file_path="frontend/src/App.js")
+```
+Reads the file and runs a compliance audit. Use for targeted fixes with `get_fixes` + `apply_fix`.
+
 **Tool:** `scan_code`
 ```
 scan_code(code="<paste your code here>", filename="routes/register.js")
